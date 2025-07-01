@@ -1,5 +1,6 @@
 # Built-in libraries
 import os
+import asyncio
 import base64
 from email.message import EmailMessage
 
@@ -22,6 +23,7 @@ from mcp.server.elicitation import (
                                     DeclinedElicitation,
                                     CancelledElicitation,
                                     )
+from utils import build_query
 
 # Loads google credentials
 creds = Credentials.from_authorized_user_file("./servers/token.json", SCOPES)
@@ -30,6 +32,11 @@ mcp = FastMCP("Google services",
               host = "0.0.0.0",
               port = 8000,
             )
+
+# CLASSES
+class ConfirmOperation(BaseModel):
+    confirm: bool = Field(description= "True or False depending whether if you confirm the mail.")
+    notes: str = Field(description = "Additional notes.")
 
 # TOOLS
 @mcp.tool(title = "Get user info")
@@ -66,48 +73,17 @@ async def create_draft( mail_content: str,
         print(f"An exception occurred while calling {create_draft.__name__}.")
         print(f"Details: \n {error}")
     return draft
-
-@mcp.tool(title = "Send message")
-async def send_mail( 
-                        mail_content: str,
-                        mail_subject: str,
-                        mail_dest: str,
-                        user_id = USER_ID,
-                        ) -> dict:
-
-    try:
-        # Create message object
-        message = EmailMessage()
-        message.set_content(mail_content)
-        message["Subject"] = mail_subject
-        message["To"] = mail_dest
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        body = {"raw": encoded_message}
-        
-        # Send mail
-        with build("gmail", "v1", credentials=creds) as gmail_service:
-            mail = gmail_service.users().messages().send(userId = user_id, body = body).execute()
-
-    except HttpError as error:
-        print(f"An HTTP error occurred while calling {send_mail.__name__}.")
-        print(f"Details: \n {error}")
-    except Exception as error:
-        print(f"An exception occurred while calling {send_mail.__name__}.")
-        print(f"Details: \n {error}")
-    return mail
     
-
-@mcp.tool(title = "Send message")
-async def send_mail_with_approval( 
+@mcp.tool(title = "Send message with approval")
+async def send_mail( 
                         context: Context,
                         mail_content: str,
                         mail_subject: str,
                         mail_dest: str,
                         user_id = USER_ID,
+                        approval_flow: bool = False,
                         ) -> dict|str:
-    class ConfirmOperation(BaseModel):
-        confirm: bool = Field(description= "True or False depending whether if you confirm the mail.")
-        notes: str = Field(description = "Additional notes.")
+
     try:
         # Create message object
         message = EmailMessage()
@@ -117,29 +93,33 @@ async def send_mail_with_approval(
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         body = {"raw": encoded_message}
 
-        
-        user_response = await context.elicit(
-                        message = f"""Do you want to send the mail with the following data? \n
-                                Recipient: {message["To"]}\n
-                                Subject: {message["Subject"]} \n
-                                Content: {mail_content}
-                                """,
-                        schema = ConfirmOperation
-        )
-        
-        # The following commented line of code mocks the case of user approval "OK".
-        #user_response = AcceptedElicitation(action = "accept", data = ConfirmOperation(confirm = True, notes = "Nothing"))
-        
-        match user_response:
-            case AcceptedElicitation(data = data):
-                if data.confirm:
-                # Send mail
-                    with build("gmail", "v1", credentials=creds) as gmail_service:
-                        mail = gmail_service.users().messages().send(userId = user_id, body = body).execute()
-                else:
+        if approval_flow:
+            user_response = await context.elicit(
+                            message = f"""Do you want to send the mail with the following data? \n
+                                    Recipient: {message["To"]}\n
+                                    Subject: {message["Subject"]} \n
+                                    Content: {mail_content}
+                                    """,
+                            schema = ConfirmOperation
+                            )
+            
+            # The following commented line of code mocks the case of user approval "OK".
+            #user_response = AcceptedElicitation(action = "accept", data = ConfirmOperation(confirm = True, notes = "Nothing"))
+            
+            match user_response:
+                case AcceptedElicitation(data = data):
+                    if data.confirm:
+                    # Send mail
+                        with build("gmail", "v1", credentials=creds) as gmail_service:
+                            mail = gmail_service.users().messages().send(userId = user_id, body = body).execute()
+                    else:
+                        return "Mail not sent."
+                case DeclinedElicitation() | CancelledElicitation():
                     return "Mail not sent."
-            case DeclinedElicitation() | CancelledElicitation():
-                return "Mail not sent."
+    
+        else:
+            with build("gmail", "v1", credentials=creds) as gmail_service:
+                mail = gmail_service.users().messages().send(userId = user_id, body = body).execute()
 
     except HttpError as error:
         print(f"An HTTP error occurred while calling {send_mail.__name__}.")
@@ -149,6 +129,97 @@ async def send_mail_with_approval(
         print(f"Details: \n {error}")
     return mail
 
+@mcp.tool(title = "Get message")
+async def get_mail_details(
+                            mail_id: str,
+                            user_id = USER_ID,
+                            ) ->dict:
+    try:
+        with build("gmail", "v1", credentials=creds) as gmail_service:
+            mail_details = gmail_service.users().messages().get(userId = user_id, 
+                                                                id = mail_id,
+                                                                format = "full",
+                                                            ).execute()
+        # Fetch subject and date fields
+        for field in mail_details["payload"]["headers"]:
+            if field["name"] == "Subject":
+                mail_subject = field["value"]
+            elif field["name"] == "Date":
+                mail_date = field["value"].split("+")[0].strip()
+        
+        # Fetch email body
+        if "data" in (path:= mail_details["payload"]["parts"][0]["body"]):
+            mail_body = path["data"]
+        else:
+            mail_body = mail_details["payload"]["parts"][0]["parts"][0]["body"]["data"]
+        
+        mail_body += "=" * (-len(mail_body) % 4) # This check is needed since gmail could omits "="
+        mail_body = base64.urlsafe_b64decode(mail_body).decode("utf-8")
+    
+    except HttpError as error:
+        print(f"An HTTP error occurred while calling {get_mail_details.__name__}.")
+        print(f"Details: \n {error}")
+    except IndexError as error:
+        print(f"An error occurred while fetching datas from mail during the execution of {get_mail_details.__name__}.")
+        print(f"Details: \n {error}")
+    except Exception as error:
+        print(f"An exception occurred while calling {get_mail_details.__name__}.")
+        print(f"Details: \n {error}")
+       
+    return {
+            "mail_id": mail_id,
+            "mail_subject": mail_subject,
+            "mail_body": mail_body,
+            "mail_date": mail_date,
+            }
+
+@mcp.tool(title = "Mail list")
+async def get_mail_list(
+                        recipients: None|str| list[str] = None,
+                        mail_subject: None|str = None,
+                        start_date: None|str = None,
+                        end_date: None|str = None,
+                        mail_state: None| str = None,
+                        label: None| str = None,
+                        folder: None| str = "inbox",
+                        max_results: int = 10,
+                        include_spam_trash: bool = False,
+                        user_id = USER_ID,
+                        )-> dict:
+    
+    query = build_query(
+                        recipients=recipients,
+                        mail_subject = mail_subject,
+                        start_date = start_date,
+                        end_date = end_date,
+                        mail_state = mail_state,
+                        folder = folder,
+                        label = label,
+                        )
+
+    with build("gmail", "v1", credentials=creds) as gmail_service:
+        mail_list = gmail_service.users().messages().list(userId = user_id, 
+                                                        maxResults = max_results,
+                                                        includeSpamTrash = include_spam_trash,
+                                                        q = query,
+                                                        ).execute()
+    
+    # Get mail details for each mail_id retrieved.
+    tasks = {}
+    try:
+        async with asyncio.TaskGroup() as tg:
+            for item in mail_list["messages"]:
+                msg_id = item["id"]
+                tasks[msg_id] = tg.create_task(get_mail_details(mail_id = msg_id))
+    except* HttpError as eg:
+        for error in eg.exceptions:
+            print(error)
+    except* Exception as eg:
+        for error in eg.exceptions:
+            print(error)
+
+    mail_dict = {key: value.result() for key, value in tasks.items()}
+    return mail_dict
 
 if __name__ == "__main__":
     transport = "stdio"
