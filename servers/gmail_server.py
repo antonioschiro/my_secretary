@@ -24,7 +24,10 @@ from mcp.server.elicitation import (
                                     CancelledElicitation,
                                     )
 from utils import build_query
-
+from data_structures import (SendMailInput,
+                            MailListInput,
+                            ConfirmOperation,
+                            )
 # Loads google credentials
 creds = Credentials.from_authorized_user_file("./servers/token.json", SCOPES)
 
@@ -33,10 +36,6 @@ mcp = FastMCP("Google services",
               port = 8000,
             )
 
-# CLASSES
-class ConfirmOperation(BaseModel):
-    confirm: bool = Field(description= "True or False depending whether if you confirm the mail.")
-    notes: str = Field(description = "Additional notes.")
 
 # TOOLS
 @mcp.tool(title = "Get user info")
@@ -75,30 +74,26 @@ async def create_draft( mail_content: str,
     return draft
     
 @mcp.tool(title = "Send message with approval")
-async def send_mail( 
+async def send_mail(sendmail_input: SendMailInput,
                         context: Context,
-                        mail_content: str,
-                        mail_subject: str,
-                        mail_dest: str,
                         user_id = USER_ID,
-                        approval_flow: bool = False,
-                        ) -> dict|str:
+                            ) -> dict|str:
 
     try:
         # Create message object
         message = EmailMessage()
-        message.set_content(mail_content)
-        message["Subject"] = mail_subject
-        message["To"] = mail_dest
+        message.set_content(sendmail_input.mail_content)
+        message["Subject"] = sendmail_input.mail_subject
+        message["To"] = sendmail_input.mail_dest
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         body = {"raw": encoded_message}
 
-        if approval_flow:
+        if sendmail_input.approval_flow:
             user_response = await context.elicit(
                             message = f"""Do you want to send the mail with the following data? \n
                                     Recipient: {message["To"]}\n
                                     Subject: {message["Subject"]} \n
-                                    Content: {mail_content}
+                                    Content: {sendmail_input.mail_content}
                                     """,
                             schema = ConfirmOperation
                             )
@@ -153,7 +148,7 @@ async def get_mail_details(
         else:
             mail_body = mail_details["payload"]["parts"][0]["parts"][0]["body"]["data"]
         
-        mail_body += "=" * (-len(mail_body) % 4) # This check is needed since gmail could omits "="
+        mail_body += "=" * (-len(mail_body) % 4) # This check is needed since Gmail could omit "=".
         mail_body = base64.urlsafe_b64decode(mail_body).decode("utf-8")
     
     except HttpError as error:
@@ -175,32 +170,24 @@ async def get_mail_details(
 
 @mcp.tool(title = "Mail list")
 async def get_mail_list(
-                        recipients: None|str| list[str] = None,
-                        mail_subject: None|str = None,
-                        start_date: None|str = None,
-                        end_date: None|str = None,
-                        mail_state: None| str = None,
-                        label: None| str = None,
-                        folder: None| str = "inbox",
-                        max_results: int = 10,
-                        include_spam_trash: bool = False,
-                        user_id = USER_ID,
+                            mail_list_input: MailListInput,
+                            user_id: str = USER_ID,
                         )-> dict:
     
     query = build_query(
-                        recipients=recipients,
-                        mail_subject = mail_subject,
-                        start_date = start_date,
-                        end_date = end_date,
-                        mail_state = mail_state,
-                        folder = folder,
-                        label = label,
+                        recipients=mail_list_input.recipients,
+                        mail_subject = mail_list_input.mail_subject,
+                        start_date = mail_list_input.start_date,
+                        end_date = mail_list_input.end_date,
+                        mail_state = mail_list_input.mail_state,
+                        folder = mail_list_input.folder,
+                        label = mail_list_input.label,
                         )
 
     with build("gmail", "v1", credentials=creds) as gmail_service:
         mail_list = gmail_service.users().messages().list(userId = user_id, 
-                                                        maxResults = max_results,
-                                                        includeSpamTrash = include_spam_trash,
+                                                        maxResults = mail_list_input.max_result,
+                                                        includeSpamTrash = mail_list_input.include_spam_trash,
                                                         q = query,
                                                         ).execute()
     

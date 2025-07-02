@@ -1,12 +1,3 @@
-import re
-from datetime import datetime
-today_date = datetime.today()
-today_formatted = today_date.strftime("%Y/%m/%d")
-
-def validate_mail_address(email: str) -> bool:
-   # TO BE DONE 
-    return False
-
 def build_query(
                 recipients: None|str| list[str] = None,
                 mail_subject: None|str = None,
