@@ -4,7 +4,7 @@ from pydantic import (BaseModel,
                       field_validator,
                       ValidationError,
                     )
-from enum import Enum
+from enum import (Enum, auto)
 from typing import (Optional,
                     List,
                     Union,
@@ -16,6 +16,17 @@ class MailState(str, Enum):
     read = "read"
     starred = "starred"
     important = "important"
+
+class EventType(str, Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+    birthday = auto()
+    default = auto()
+    focusTime = auto()
+    fromGmail = auto()
+    outOfOffice = auto()
+    workingLocation = auto()
 
 class SendMailInput(BaseModel):
     mail_content: str = Field(..., description= "The email body.")
@@ -50,8 +61,17 @@ class MailListInput(BaseModel):
                                               Length of {item} should be equal to {expected_len}.
                                               Length found: {len(item)}""")
                 return v
-            raise ValidationError(f"{v} should be in YYYY/MM/DD format.")
-        raise ValidationError(f"{v} should be a {str.__name__}. Found {type(v).__name__}")
+            raise ValidationError(f"{v} must be in YYYY/MM/DD format.")
+        raise ValidationError(f"{v} must be a {str.__name__}. Found {type(v).__name__}")
+    
+class EventListInput(BaseModel):
+    eventTypes: EventType = Field(default = "default", description = "The type of event you want to search.")
+    maxResults: int = Field(default = 10, description= "Maximum number of results to retrieve.")
+    timeMin: str|None = Field(default = None, description= "Start datetime. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
+    timeMax: str|None = Field(default = None, description= "End datetime. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
+    showDeleted: bool| None = Field(default = None, description = "Whether to show deleted events or not.")
+    class Config:
+        use_enum_values = True
 
 # OTHER CLASSES
 class ConfirmOperation(BaseModel):

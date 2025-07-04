@@ -10,7 +10,7 @@ from googleapiclient.errors import HttpError
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
-SCOPES = [os.getenv("SCOPES")] # If modifying these scopes, delete the file token.json.
+SCOPES = [os.getenv("GMAIL_SCOPE"), os.getenv("CALENDAR_SCOPE")] # If modifying these scopes, delete the file token.json.
 
 
 def main():
@@ -21,19 +21,19 @@ def main():
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+  if os.path.exists("./servers/token.json"):
+    creds = Credentials.from_authorized_user_file("./servers/token.json", SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
       creds.refresh(Request())
     else:
       flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
+          "./servers/credentials.json", SCOPES
       )
       creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
-    with open("token.json", "w") as token:
+    with open("./servers/token.json", "w") as token:
       token.write(creds.to_json())
 
   try:
