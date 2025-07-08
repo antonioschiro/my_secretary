@@ -1,0 +1,7 @@
+{
+    "gmail_server": {
+        "command": "python",
+        "args": ["./servers/gmail_server.py"],
+        "transport": "stdio"
+    }
+}
