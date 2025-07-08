@@ -34,16 +34,14 @@ mcp = FastMCP("Google services",
               host = "0.0.0.0",
               port = 8000,
             )
+user_id = USER_ID
 
 # TOOLS
 # MAIL TOOLS
 @mcp.tool(title = "Get user info")
-async def get_profile(user_id = USER_ID) -> dict|None:
+async def get_profile() -> dict|None:
     """
-    Retrieves the Gmail profile information for the specified user.
-
-    Parameters:
-        user_id (str, optional): The user's email address or "me" to indicate the authenticated user. Defaults to USER_ID.
+    Retrieves the Gmail account information.
 
     Returns:
         dict | None: The user's profile information as a dictionary or None if an error occurs.
@@ -61,7 +59,6 @@ async def get_profile(user_id = USER_ID) -> dict|None:
 async def create_draft( mail_content: str,
                         mail_subject: str,
                         mail_dest: str|None = None,
-                        user_id = USER_ID,
                         ) -> dict|None:
     
     """
@@ -71,7 +68,6 @@ async def create_draft( mail_content: str,
         mail_content (str): The body content of the email.
         mail_subject (str): The subject of the email.
         mail_dest (str | None, optional): The recipient's email address. If None, the draft will not have a recipient.
-        user_id (str, optional): The user's email address or "me". Defaults to USER_ID.
 
     Returns:
         dict | None: The created draft's details as a dictionary or None if an error occurs.
@@ -99,7 +95,6 @@ async def create_draft( mail_content: str,
 @mcp.tool(title = "Send message with approval")
 async def send_mail(sendmail_input: SendMailInput,
                         context: Context,
-                        user_id = USER_ID,
                             ) -> dict|str| None:   
     """
     Sends an email message, optionally requiring user approval before sending.
@@ -107,7 +102,6 @@ async def send_mail(sendmail_input: SendMailInput,
     Parameters:
         sendmail_input (SendMailInput): The input data for the email (content, subject, recipient and approval flow).
         context (Context): The context for user interaction and approval.
-        user_id (str, optional): The user's email address or "me". Defaults to USER_ID.
 
     Returns:
         dict | str | None: The sent message's details as a dictionary, a string message if not sent or None if an error occurs.
@@ -159,17 +153,15 @@ async def send_mail(sendmail_input: SendMailInput,
         print(f"Details: \n {error}")
     return mail
 
-@mcp.tool(title = "Get message")
+# This is not exposed as tool, but it is called within get_mail_list()
 async def get_mail_details(
                             mail_id: str,
-                            user_id = USER_ID,
                             ) ->dict:
     """
     Retrieves the details of a specific email message by its ID.
 
     Parameters:
         mail_id (str): The unique ID of the email message.
-        user_id (str, optional): The user's email address or "me". Default to USER_ID.
 
     Returns:
         dict: A dictionary containing the mail's ID, subject, body, and date.
@@ -217,17 +209,26 @@ async def get_mail_details(
 @mcp.tool(title = "Mail list")
 async def get_mail_list(
                             mail_list_input: MailListInput,
-                            user_id: str = USER_ID,
                         )-> dict:
     """
-    Retrieves a list of emails matching the specified filters.
+    Retrieves email(s) matching the specified filters.
 
     Parameters:
-        mail_list_input (MailListInput): The filters and options for retrieving emails.
-        user_id (str, optional): The user's email address or "me". Defaults to USER_ID.
+        mail_list_input (MailListInput): a class containing all the filters and options for retrieving emails:
+                                                recipients (str, optional): recipients email address(es) to filter.
+                                                mail_subject (str, optional): email subject.
+                                                mail_state (str, optional): mail state. It refers to 'is:' operator. Values accepted: "unread", "read", "starred", "important".
+                                                label (str, optional): the email tag(s).
+                                                folder (str, optional. Default is "inbox".): the selected mail folder. Values accepted: "inbox", "sent".
+                                                start_date (str, optional): specifies the earliest date to include in the search results. Use the format: YYYY/MM/DD. (e.g. 2025/04/01)
+                                                end_date (str, optional): specifies the earliest date to include in the search results. Use the format: YYYY/MM/DD. (e.g. 2025/04/02)
+                                                max_result (int, default: 10): number of max results to retrieve. 
+                                                include_spam_trash (bool, Default: False): whether to include spam and trash folders in search. 
 
     Returns:
         dict: A dictionary mapping mail IDs to their details.
+
+    See MailListInput class for full field description.
     """
 
     mail_list = None
@@ -303,14 +304,24 @@ async def get_my_calendar(calendar_id: str = "primary")-> dict|None:
         print(f"An HTTP error occurred while calling {get_my_calendar.__name__}.\nError: {error}")
     return my_calendar
 
-@mcp.tool()
+@mcp.tool(title = "Get events")
 async def get_events(event_list: EventListInput, calendar_id: str = "primary")-> dict|None:
 
     """
-    Retrieves events from a specified calendar filtered by the provided criteria.
+    Retrieves event(s) filtered by the provided criteria from the calendar.
 
     Parameters:
-        event_list (EventListInput): The filters and options for retrieving events.
+        event_list (EventListInput):  a class containing all the filters and options for retrieving events:
+                                            eventTypes (str. Default = "default"): the type of event(s) you want to search. 
+                                                        Values accepted: "birthday", 
+                                                                        "default", 
+                                                                        "focusTime", 
+                                                                        "fromGmail", 
+                                                                        "outOfOffice", 
+                                                                        "workingLocation".
+                                            maxResults (int. Default = 10): the maximum number of events to retrieve from the search.
+                                            timeMin (str, optional. Default = None): specifies the earliest date/time to include in the search results. Use the format: %Y-%m-%dT%H:%M:%SZ (e.g., 2025-07-07T14:30:00Z).
+                                            timeMax (str, optional. Default = None): specifies the latest date/time to include in the search results. Use the format: %Y-%m-%dT%H:%M:%SZ (e.g., 2025-07-08T14:30:00Z).
         calendar_id (str, optional): The calendar's ID. Defaults to "primary".
 
     Returns:

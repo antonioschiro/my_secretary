@@ -9,6 +9,7 @@ from typing import (Optional,
                     List,
                     Union,
                     )
+import re
 
 # INPUT DATA CLASSES
 class MailState(str, Enum):
@@ -17,8 +18,12 @@ class MailState(str, Enum):
     starred = "starred"
     important = "important"
 
+class MailFolder(str, Enum):
+    inbox = "inbox"
+    sent = "sent"
+
 class EventType(str, Enum):
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(name):
         return name
 
     birthday = auto()
@@ -39,7 +44,7 @@ class MailListInput(BaseModel):
     mail_subject: Optional[str] = Field(default = None, description = "Email subject.")
     mail_state: Optional[MailState] = Field(default = None, description = "Mail state. It refers to 'is:' operator.")
     label: Optional[str] = Field(default = None, description= "The email tag(s).")
-    folder: Optional[str] = Field(default="inbox", description= "The selected mail folder.")
+    folder: Optional[MailFolder] = Field(default="inbox", description= "The selected mail folder.")
     start_date: Optional[str] = Field(default = None, description = "The start date filter in YYYY/MM/DD.")
     end_date: Optional[str] = Field(default = None, description = "The end date filter in YYYY/MM/DD.")
     max_result: int = Field(default = 10, description = "Number of max results to retrieve.")
@@ -70,8 +75,20 @@ class EventListInput(BaseModel):
     timeMin: str|None = Field(default = None, description= "Start datetime. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
     timeMax: str|None = Field(default = None, description= "End datetime. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
     showDeleted: bool| None = Field(default = None, description = "Whether to show deleted events or not.")
+    
     class Config:
         use_enum_values = True
+
+    @field_validator("timeMin", "timeMax")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        pattern = "^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+        if isinstance(v, str):
+            match = re.fullmatch(pattern, v)
+            if match:
+                return v
+            raise ValidationError(f"The value {v} does not match the regex {pattern}. Check the input value.")
+        raise ValidationError(f"{v} must be a {str.__name__}. Found {type(v).__name__}")
 
 # OTHER CLASSES
 class ConfirmOperation(BaseModel):
