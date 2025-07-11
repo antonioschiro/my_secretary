@@ -1,16 +1,16 @@
+import os
 import asyncio
 import json
 # Importing Langchain/Langgraph packages
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from graph import create_agent_graph, StateGraph
-from langchain_mcp_adapters.tools import load_mcp_tools
+from graph import create_agent_graph
 from langchain.prompts import ChatPromptTemplate
-from langchain_core.messages import AIMessage, ToolMessage
-# FastAPI imports
+# FastAPI/Backend imports
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketException
 from fastapi.responses import HTMLResponse
 import uvicorn
+
 from prompts import google_assistant_prompt
 
 # Defining prompt template
@@ -37,20 +37,15 @@ async def lifespan(app: FastAPI):
     agent_chain = (prompt_template | agent)
 
     async def run_agent(query: str) -> str:
-        message_list = []
-
         async for event in agent_chain.astream(
                                         {"tools": tools,
                                         "query": query},
                                         stream_mode="updates",
                                         config = memory_config,
                                         ):
-                    
-            if (llm_call :=event.get("llm_call")) is not None and \
-            not (llm_response :=llm_call["messages"][0].content):
-                message_list.append(llm_response)
-
-        return " ".join(msg for msg in message_list)
+            if event.get("llm_call") is not None and (response := event["llm_call"]["messages"][0].content):
+                answer = response
+        return answer
     
     # Make agent accessible to websocket.   
     app.state.run_agent = run_agent
@@ -65,10 +60,11 @@ html = """
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Chat</title>
+        <title>Alfred</title>
     </head>
     <body>
-        <h1>WebSocket Chat</h1>
+        <h1>Alfred</h1>
+        <h2>Your Google assistant</h2>
         <form action="" onsubmit="sendMessage(event)">
             <input type="text" id="messageText" autocomplete="off"/>
             <button>Send</button>
