@@ -2,7 +2,6 @@ from pydantic import (BaseModel,
                       Field,
                       EmailStr,
                       field_validator,
-                      ValidationError,
                     )
 from enum import (Enum, auto)
 from typing import (Optional,
@@ -23,7 +22,7 @@ class MailFolder(str, Enum):
     sent = "sent"
 
 class EventType(str, Enum):
-    def _generate_next_value_(name):
+    def _generate_next_value_(name, start, count, last_values):
         return name
 
     birthday = auto()
@@ -55,19 +54,21 @@ class MailListInput(BaseModel):
 
     @field_validator("start_date", "end_date")
     @classmethod
-    def validate_date(cls, v: str) -> str:
+    def validate_date(cls, v: str|None) -> str|None:
         if isinstance(v, str):
             v = v.strip()
             splitted_date = v.split("/")
             if len(splitted_date) == 3:
                 for item, expected_len in zip(splitted_date, [4,2,2]):
                     if len(item) != expected_len:
-                        raise ValidationError(f"""An error occurred while parsing {v}:\n
+                        raise ValueError(f"""An error occurred while parsing {v}:\n
                                               Length of {item} should be equal to {expected_len}.
                                               Length found: {len(item)}""")
                 return v
-            raise ValidationError(f"{v} must be in YYYY/MM/DD format.")
-        raise ValidationError(f"{v} must be a {str.__name__}. Found {type(v).__name__}")
+            raise ValueError(f"{v} must be in YYYY/MM/DD format.")
+        if v is not None:
+            raise TypeError(f"{v} must be a {str.__name__} or {None.__qualname__}. Found {type(v).__name__}")
+        return None
     
 class EventListInput(BaseModel):
     eventTypes: EventType = Field(default = "default", description = "The type of event you want to search.")
@@ -81,14 +82,47 @@ class EventListInput(BaseModel):
 
     @field_validator("timeMin", "timeMax")
     @classmethod
+    def validate_date(cls, v: str|None) -> str|None:
+        pattern = "^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+        if isinstance(v, str):
+            match = re.fullmatch(pattern, v)
+            if match:
+                return v
+            raise ValueError(f"The value {v} does not match the regex {pattern}. Check the input value.")
+        if v is not None:
+            raise TypeError(f"{v} must be a {str.__name__} or {None.__qualname__}. Found {type(v).__name__}")
+        return None
+
+class PostEventInput(BaseModel):
+    start_time: str = Field(..., description = "The start datetime of the event. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
+    end_time: str = Field(..., description = "The end datetime of the event. The date format is: \"%Y-%m-%dT%H:%M:%SZ\"")
+    attendees: Optional[List[str]] = Field(default = None, description = "The email address(es) of the attende(es).")
+    summary: Optional[str] = Field(default = None, description = "The event title.")
+    
+    @field_validator("start_time", "end_time")
+    @classmethod
     def validate_date(cls, v: str) -> str:
         pattern = "^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
         if isinstance(v, str):
             match = re.fullmatch(pattern, v)
             if match:
                 return v
-            raise ValidationError(f"The value {v} does not match the regex {pattern}. Check the input value.")
-        raise ValidationError(f"{v} must be a {str.__name__}. Found {type(v).__name__}")
+            raise ValueError(f"The value {v} does not match the regex {pattern}. Check the input value.")
+        raise TypeError(f"{v} must be a {str.__name__}. Found {type(v).__name__}")
+    
+    @field_validator("attendees")
+    @classmethod
+    def validate_mails(cls, v: list[str]|None) -> list[str]|None:
+        pattern = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+        if isinstance(v, list):
+            pattern_list = list(map(lambda mail: True if re.fullmatch(pattern, mail) else False, v))
+            if all(pattern_list):
+                return v
+            raise ValueError(f"Some mails were not provided in the correct format. Check {v}.")
+        if v is None:
+            return None
+        raise TypeError(f"{v} is not in a valid format. Check the input value.")
+
 
 # OTHER CLASSES
 class ConfirmOperation(BaseModel):

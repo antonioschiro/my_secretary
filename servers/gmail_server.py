@@ -8,7 +8,6 @@ from email.message import EmailMessage
 from dotenv import load_dotenv
 load_dotenv()
 SCOPES = [os.getenv("GMAIL_SCOPE"), os.getenv("CALENDAR_SCOPE")]
-USER_ID = os.getenv("USER_ID")
 
 # Import google libraries
 from google.oauth2.credentials import Credentials
@@ -26,6 +25,7 @@ from data_structures import (SendMailInput,
                             MailListInput,
                             ConfirmOperation,
                             EventListInput,
+                            PostEventInput,
                             )
 # Loads google credentials
 creds = Credentials.from_authorized_user_file("./servers/token.json", SCOPES)
@@ -34,7 +34,8 @@ mcp = FastMCP("Google services",
               host = "0.0.0.0",
               port = 8000,
             )
-user_id = USER_ID
+
+user_id = "me"
 
 # TOOLS
 # MAIL TOOLS
@@ -154,9 +155,7 @@ async def send_mail(sendmail_input: SendMailInput,
     return mail
 
 # This is not exposed as tool, but it is called within get_mail_list()
-async def get_mail_details(
-                            mail_id: str,
-                            ) ->dict:
+async def get_mail_details(mail_id: str) ->dict:
     """
     Retrieves the details of a specific email message by its ID.
 
@@ -284,7 +283,7 @@ async def get_calendars()-> dict|None:
         print(f"An HTTP error occurred while calling {get_calendars.__name__}.\nError: {error}")
     return calendars_list
 
-@mcp.tool()
+@mcp.tool(title = "Get calendar info")
 async def get_my_calendar(calendar_id: str = "primary")-> dict|None:
     """
     Retrieves details of a specific calendar.
@@ -339,6 +338,49 @@ async def get_events(event_list: EventListInput, calendar_id: str = "primary")->
     except HttpError as error:
         print(f"An HTTP error occurred while calling {get_events.__name__}.\nError: {error}")
     return events
+
+@mcp.tool(title = "Create event")
+async def post_event(post_event_input: PostEventInput, calendar_id: str = "primary") -> dict|None:
+    """
+    Create an event on the calendar with the provided start time and end date.
+
+    Parameters:
+    - post_event_input (PostEventInput): a class containing the start time and end date to be set for the event:
+                                        start_time (str): the start date of the event. Use the format: %Y-%m-%dT%H:%M:%SZ (e.g., 2025-07-07T14:30:00Z).
+                                        end_time (str): the end date of the event. Use the format: %Y-%m-%dT%H:%M:%SZ (e.g., 2025-07-07T15:30:00Z).
+                                        attendees (list(str), optional. Default = None): the email(s) list of the attendees.
+                                        summary (str, optional. Default = None): The title of the event. It is the event's name displayed on the calendar.
+
+    Returns:
+        dict | None:                                    
+
+    """
+    # Initialize body with mandatory fields.
+    body = {
+        "start": {
+            "dateTime": post_event_input.start_time,
+            },
+        "end": {
+            "dateTime": post_event_input.end_time,
+            }
+    }
+
+    # Adding optional fields if they are provided.
+    if post_event_input.attendees is not None: 
+        attendees = [{"email": email} for email in post_event_input.attendees]
+        body["attendees"] = attendees
+    if (summary :=post_event_input.summary) is not None:
+        body["summary"] = summary
+    
+    try:
+        with build("calendar", "v3", credentials=creds) as calendar_service:
+            event = calendar_service.events().insert(calendarId = calendar_id,
+                                                    body = body,
+                                                    ).execute()
+    except HttpError as error:
+            print(f"An HTTP error occurred while calling {post_event.__name__}.\nError: {error}")
+
+    return event
 
 if __name__ == "__main__":
     transport = "stdio"
