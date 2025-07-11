@@ -6,7 +6,11 @@ from langgraph.graph import StateGraph, START
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from dotenv import load_dotenv
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def create_agent_graph(tools: list) -> StateGraph:
     '''
@@ -29,14 +33,18 @@ def create_agent_graph(tools: list) -> StateGraph:
     memory = MemorySaver()
 
     # Choose LLM and bind tools
-    llm = ChatOllama(model = "llama3.2:latest", disable_streaming= True)
+    llm = ChatGoogleGenerativeAI(model = "gemini-2.5-flash",
+                                 temperature = 0,
+                                 google_api_key = GEMINI_API_KEY
+                                )    
+   
     llm_with_tools = llm.bind_tools(tools)
-    
+
     # Definining nodes
     def llm_call(agent_state: AgentState):
         response = llm_with_tools.invoke(agent_state["messages"])
         return {"messages": [response]}
-
+    
     # GRAPH BUILDING
     # Node
     graph_builder.add_node("llm_call", llm_call)
