@@ -3,14 +3,16 @@ import asyncio
 import json
 # Importing Langchain/Langgraph packages
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from graph import create_agent_graph
 from langchain.prompts import ChatPromptTemplate
 # FastAPI/Backend imports
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketException
+from fastapi import FastAPI, WebSocket, WebSocketException, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
 
+from graph import create_agent_graph
 from prompts import google_assistant_prompt
 
 # Defining prompt template
@@ -54,46 +56,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan = lifespan)
-
-# Example of html. Should be changed.
-html = """
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Alfred</title>
-    </head>
-    <body>
-        <h1>Alfred</h1>
-        <h2>Your Google assistant</h2>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
-        <script>
-            var ws = new WebSocket("ws://localhost:8000/ws");
-            ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
-    </body>
-</html>
-"""
+app.mount("/frontend/static", StaticFiles(directory= "./frontend/static"), name= "static")
+templates = Jinja2Templates(directory="frontend")
 
 @app.get("/")
-async def get():
-    return HTMLResponse(html)
+async def get(request: Request):
+    return templates.TemplateResponse(name = "main_page.html", context= {"request": request})
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
