@@ -7,7 +7,7 @@
 
     body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #f7f7f8;
+        background-color: #1e1e1e;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -18,12 +18,12 @@
     h1, h2 {
         text-align: center;
         margin-bottom: 0.25rem;
-        color: #333;
+        color: #dddcdb;
     }
 
     h2 {
         font-size: 1.1rem;
-        color: #666;
+        color: #dddcdb;
         margin-bottom: 1.5rem;
     }
 
@@ -31,9 +31,8 @@
         width: 100%;
         max-width: 768px;
         flex: 1;
-        overflow-y: auto;
-        background-color: #ffffff;
-        border: 1px solid #ddd;
+        background-color: #21211f;
+        border: 1px solid #dddcdb;
         border-radius: 8px;
         padding: 1rem;
         margin-top: 1rem;
@@ -41,24 +40,24 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+        overflow-y: auto;
     }
 
     .message-type {
-        background-color: #e7e7e9;
+        background-color: #2a2a28;
         padding: 0.75rem 1rem;
         border-radius: 8px;
         max-width: 75%;
         line-height: 1.4;
+        color: #dddcdb;
     }
 
     .message-type.right {
         align-self: flex-end;
-        background-color: #dcf0fe;
     }
 
     .message-type.left {
         align-self: flex-start;
-        background-color: #f1f1f1;
     }
 
     form {
@@ -69,22 +68,24 @@
     }
 
     input[type="text"] {
+        background-color: #464646;
         flex: 1;
         padding: 0.75rem 1rem;
         font-size: 1rem;
-        border: 1px solid #ccc;
+        color: #dddcdb;
+        border: 1px solid #dddcdb;
         border-radius: 9999px;
         outline: none;
     }
 
     input[type="text"]:focus {
-        border-color: #10a37f;
+        border-color: #dddcdb;
     }
     
     button {
         padding: 0.75rem 1.25rem;
         font-size: 1rem;
-        background-color: #10a37f;
+        background-color: #464646;
         color: white;
         border: none;
         border-radius: 9999px;
@@ -93,11 +94,11 @@
     }
 
     button:hover {
-        background-color: #0e8c6d;
+        background-color: #464646;
     }
 
     button[disabled]{
     border: 1px solid #999999;
-    background-color: #cccccc;
-    color: #666666;
+    background-color: #41413f;
+    color: #dddcdb;
 }
