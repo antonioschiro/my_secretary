@@ -2,16 +2,17 @@
 <html>
     <head>
         <title>Alfred AI</title>
+        <link rel="stylesheet" href="/frontend/static/style.css">
     </head>
     <body>
         <h1>Alfred</h1>
         <h2>Your Google assistant</h2>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
         <div id='messages'>
         </div>
+        <form action="" onsubmit="sendMessage(event)">
+        <input type="text" id="messageText" placeholder="At your service, sir." autocomplete="off"/>
+        <button id="sendButton">Send</button>
+        </form>
         <script src="/frontend/static/assistant.js"></script>
     </body>
 </html>
