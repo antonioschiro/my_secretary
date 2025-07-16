@@ -20,7 +20,7 @@ const manageToggleForm = (isDisabled) => {
     }
     else {
         for (element of formElements){
-            element.removeAttribute("disabled", "false")
+            element.removeAttribute("disabled")
         }
     }
 }
