@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
     agent_chain = (prompt_template | agent)
 
     async def run_agent(query: str) -> str:
+        answer = None
         async for event in agent_chain.astream(
                                         {"tools": tools,
                                         "query": query},
