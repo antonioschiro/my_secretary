@@ -1,4 +1,4 @@
-# My Secretary [WORK IN PROGRESS 🛠️]
+# My Secretary 
 
 "My Secretary" is a Python project that provides a conversational assistant for Gmail and Google Calendar, powered by Google APIs, LangChain, LangGraph and MCP. It enables you to automate email and calendar tasks, interact with language models and use a web frontend for chat-based interaction.
 
@@ -13,6 +13,12 @@
 - Integrate with Gemini LLM via LangChain and LangGraph.
 - Modular MCP server exposing tools for LLM agents.
 - Web frontend for chat-based interaction.
+
+## Example
+
+Here's a screenshot showing the web chat UI and an example interaction with the assistant:
+
+![Example chat interaction](frontend/static/demo.png)
 
 ## Project Structure
 
