@@ -6,7 +6,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.prompts import ChatPromptTemplate
 # FastAPI/Backend imports
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketException, Request
+from fastapi import FastAPI, WebSocket, WebSocketException, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -72,8 +72,8 @@ async def websocket_endpoint(websocket: WebSocket):
             user_input = await websocket.receive_text()
             response = await app.state.run_agent(query = user_input)
             await websocket.send_text(response)
-    except WebSocketException as error:
-        return f"An error encountered while connecting to websocket.\nDetails: {error}"
+    except WebSocketDisconnect as error:
+        print(f"Connection closed.\nMore info: {error}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host = "localhost", port = 8000, reload = True)
